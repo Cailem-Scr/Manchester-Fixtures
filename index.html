@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Greater Manchester & North West Football Fixture Finder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    input[type="range"] {
+      accent-color: #10b981;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Navigation & Header -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-extrabold text-xl">
+            ⚽
+          </div>
+          <div>
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+                Manchester <span class="text-emerald-400">≤45m</span> Fixture Finder
+              </h1>
+              <span id="dataSourceBadge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                Checking live feed...
+              </span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-400">
+              All pyramid tiers within 45 minutes travel of Manchester Piccadilly / City Centre
+            </p>
+          </div>
+        </div>
+
+        <!-- View Tabs -->
+        <div class="flex items-center gap-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60 self-start md:self-auto">
+          <button onclick="switchTab('fixtures')" id="tab-fixtures" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold bg-emerald-500 text-slate-950 transition">
+            Fixtures
+          </button>
+          <button onclick="switchTab('clubs')" id="tab-clubs" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition">
+            Clubs (≤45m)
+          </button>
+          <button onclick="switchTab('shortlist')" id="tab-shortlist" class="tab-btn px-3.5 py-1.5 rounded-lg text-sm font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5">
+            Shortlist
+            <span id="shortlistBadge" class="bg-slate-700 text-emerald-400 text-xs px-1.5 py-0.5 rounded-full font-bold">0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- VIEW 1: FIXTURES -->
+    <div id="view-fixtures" class="space-y-6">
+      <!-- Filter Bar -->
+      <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <!-- Search -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Search Club or Venue</label>
+            <input type="text" id="searchInput" placeholder="e.g. Stockport, Bury, Edgeley..." 
+              class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <!-- Travel Radius -->
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Max Travel from Mcr</label>
+              <span id="radiusLabel" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">≤ 45 mins</span>
+            </div>
+            <input type="range" id="radiusSlider" min="15" max="45" step="5" value="45" class="w-full cursor-pointer mt-1" />
+            <div class="flex justify-between text-[11px] text-slate-500 mt-1">
+              <button type="button" onclick="setRadius(15)" class="hover:text-emerald-400">15m (Core)</button>
+              <button type="button" onclick="setRadius(30)" class="hover:text-emerald-400">30m (Metrolink/Rail)</button>
+              <button type="button" onclick="setRadius(45)" class="hover:text-emerald-400">45m (All NW)</button>
+            </div>
+          </div>
+
+          <!-- League / Tier Filter -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Competition / Tier</label>
+            <select id="tierFilter" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-emerald-500">
+              <option value="ALL">All Leagues & Cups</option>
+              <option value="Premier League">Premier League</option>
+              <option value="WSL">Women's Super League (WSL)</option>
+              <option value="Championship">EFL Championship</option>
+              <option value="League One">EFL League One</option>
+              <option value="League Two">EFL League Two</option>
+              <option value="National League">National League (Step 1)</option>
+              <option value="National League North">National League North (Step 2)</option>
+              <option value="Northern Premier">Northern Premier / Non-League</option>
+              <option value="Cup">Cup Competitions</option>
+            </select>
+          </div>
+
+          <!-- Location / Home-Away Toggle -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Match Location</label>
+            <div class="grid grid-cols-3 gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700">
+              <button type="button" onclick="setLocationFilter('HOME')" id="loc-HOME" class="loc-btn py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 text-slate-950 transition">
+                Local (≤45m)
+              </button>
+              <button type="button" onclick="setLocationFilter('ALL')" id="loc-ALL" class="loc-btn py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white transition">
+                All Games
+              </button>
+              <button type="button" onclick="setLocationFilter('AWAY')" id="loc-AWAY" class="loc-btn py-1.5 text-xs font-semibold rounded-lg text-slate-300 hover:text-white transition">
+                Away Only
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Date Quick Pills & Stats -->
+        <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-1.5" id="datePills">
+            <button onclick="setDateFilter('ALL')" data-date="ALL" class="date-pill px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-slate-950">All Upcoming</button>
+            <button onclick="setDateFilter('THIS_WEEK')" data-date="THIS_WEEK" class="date-pill px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Next 7 Days</button>
+            <button onclick="setDateFilter('NEXT_14')" data-date="NEXT_14" class="date-pill px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Next 14 Days</button>
+            <button onclick="setDateFilter('WEEKENDS')" data-date="WEEKENDS" class="date-pill px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Weekends Only</button>
+          </div>
+          <div class="text-xs text-slate-400">
+            Showing <span id="matchCount" class="font-bold text-white">0</span> fixtures
+          </div>
+        </div>
+      </section>
+
+      <!-- Fixtures List Container -->
+      <div id="fixturesContainer" class="space-y-6"></div>
+    </div>
+
+    <!-- VIEW 2: CLUBS DIRECTORY -->
+    <div id="view-clubs" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <h2 class="text-lg font-bold text-white">Clubs Within 45 Minutes of Manchester</h2>
+        <p class="text-sm text-slate-400 mt-1">
+          Estimated transit/drive times from Manchester Piccadilly / Victoria / City Centre. Click any club to filter their fixtures.
+        </p>
+      </div>
+      <div id="clubsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+
+    <!-- VIEW 3: SHORTLIST -->
+    <div id="view-shortlist" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white">Matchday Groundhopping Shortlist</h2>
+          <p class="text-sm text-slate-400 mt-1">Save fixtures to plan double-headers or weekend trips across Greater Manchester & the North West.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="copyShortlist()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs rounded-xl transition">
+            Copy Itinerary
+          </button>
+          <button onclick="clearShortlist()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition">
+            Clear All
+          </button>
+        </div>
+      </div>
+      <div id="shortlistContainer" class="space-y-3"></div>
+    </div>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-emerald-500 text-slate-950 font-semibold text-sm px-4 py-2.5 rounded-xl shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    Copied to clipboard!
+  </div>
+
+  <script>
+    // Club directory with travel metadata from Manchester City Centre
+    const CLUBS = [
+      { name: "Manchester City", ground: "Etihad Stadium", postcode: "M11 3FF", tier: "Premier League", mins: 10, transport: "Metrolink (Ashton Line - 9m)" },
+      { name: "Manchester United", ground: "Old Trafford", postcode: "M16 0RA", tier: "Premier League", mins: 15, transport: "Metrolink (Altrincham/Trafford Park - 14m)" },
+      { name: "Manchester City Women", ground: "Joie Stadium", postcode: "M11 4TQ", tier: "WSL", mins: 10, transport: "Metrolink (Etihad Campus - 9m)" },
+      { name: "Manchester United Women", ground: "Leigh Sports Village", postcode: "WN7 4JY", tier: "WSL", mins: 35, transport: "V1 Guided Busway / A580 (35m)" },
+      { name: "Preston North End", ground: "Deepdale", postcode: "PR1 6RU", tier: "Championship", mins: 42, transport: "Northern/Avanti Rail from Piccadilly (38m)" },
+      { name: "Blackburn Rovers", ground: "Ewood Park", postcode: "BB2 4JF", tier: "Championship", mins: 45, transport: "M66 / A666 or Rail via Victoria (45m)" },
+      { name: "Burnley", ground: "Turf Moor", postcode: "BB10 4BX", tier: "Championship", mins: 45, transport: "M66 / A56 or Direct Rail from Victoria (45m)" },
+      { name: "Bolton Wanderers", ground: "Toughsheet Community Stadium", postcode: "BL6 6JW", tier: "League One", mins: 25, transport: "Northern Rail to Horwich Parkway (22m)" },
+      { name: "Stockport County", ground: "Edgeley Park", postcode: "SK3 9DD", tier: "League One", mins: 15, transport: "Rail to Stockport (9m) + 6m walk" },
+      { name: "Wigan Athletic", ground: "The Brick Community Stadium", postcode: "WN5 0UZ", tier: "League One", mins: 35, transport: "Rail to Wigan Wallgate/North Western (30m)" },
+      { name: "Huddersfield Town", ground: "John Smith's Stadium", postcode: "HD1 6PG", tier: "League One", mins: 38, transport: "TransPennine Express from Piccadilly (30m)" },
+      { name: "Salford City", ground: "Peninsula Stadium", postcode: "M7 3PZ", tier: "League Two", mins: 15, transport: "Bus 93/97/98 from Shudehill (15m)" },
+      { name: "Crewe Alexandra", ground: "Mornflake Stadium", postcode: "CW2 6EB", tier: "League Two", mins: 38, transport: "Direct Rail from Piccadilly (34m)" },
+      { name: "Oldham Athletic", ground: "Boundary Park", postcode: "OL1 2PA", tier: "National League", mins: 22, transport: "Metrolink to Westwood + walk / Bus 409" },
+      { name: "Rochdale", ground: "Crown Oil Arena", postcode: "OL11 5DR", tier: "National League", mins: 25, transport: "Rail from Victoria (14m) + bus/walk" },
+      { name: "Altrincham", ground: "J.Davidson Stadium", postcode: "WA15 8AP", tier: "National League", mins: 22, transport: "Metrolink to Navigation Road (20m)" },
+      { name: "FC Halifax Town", ground: "The Shay", postcode: "HX1 2YT", tier: "National League", mins: 45, transport: "Direct Rail from Victoria (43m)" },
+      { name: "Curzon Ashton", ground: "Tameside Stadium", postcode: "OL7 9HG", tier: "National League North", mins: 18, transport: "Metrolink to Ashton West (18m)" },
+      { name: "Radcliffe", ground: "Neuven Stadium", postcode: "M26 3PE", tier: "National League North", mins: 24, transport: "Metrolink (Bury Line - 21m)" },
+      { name: "Chorley", ground: "Victory Park", postcode: "PR7 3DU", tier: "National League North", mins: 35, transport: "Direct Rail from Piccadilly (32m)" },
+      { name: "Macclesfield", ground: "Leasing.com Stadium", postcode: "SK11 7SP", tier: "National League North", mins: 28, transport: "Direct Rail from Piccadilly (22m)" },
+      { name: "Warrington Town", ground: "Cantilever Park", postcode: "WA4 2RS", tier: "Northern Premier", mins: 32, transport: "Rail to Warrington Central + walk" },
+      { name: "FC United of Manchester", ground: "Broadhurst Park", postcode: "M40 0FJ", tier: "Northern Premier", mins: 15, transport: "Bus 112/118 or Rail to Moston (10m)" },
+      { name: "Bury", ground: "Gigg Lane", postcode: "BL9 9HR", tier: "Northern Premier", mins: 28, transport: "Metrolink to Bury (25m) + 10m walk" },
+      { name: "Ashton United", ground: "Hurst Cross", postcode: "OL6 8DY", tier: "Northern Premier", mins: 22, transport: "Metrolink/Rail to Ashton-under-Lyne" },
+      { name: "Hyde United", ground: "Project Solar Stadium", postcode: "SK14 5PL", tier: "Northern Premier", mins: 22, transport: "Rail to Newton for Hyde (18m)" },
+      { name: "Stalybridge Celtic", ground: "Bower Fold", postcode: "SK15 2RT", tier: "Northern Premier", mins: 20, transport: "Rail to Stalybridge (14m)" }
+    ];
+
+    // Built-in fallback fixtures if fixtures.json has not yet been generated
+    const FALLBACK_FIXTURES = [
+      { id: 1001, date: "2026-11-14", time: "15:00", home: "Stockport County", away: "Bolton Wanderers", competition: "League One", venue: "Edgeley Park", travelMins: 15, isLocal: true },
+      { id: 1002, date: "2026-11-14", time: "15:00", home: "Salford City", away: "Crewe Alexandra", competition: "League Two", venue: "Peninsula Stadium", travelMins: 15, isLocal: true },
+      { id: 1003, date: "2026-11-14", time: "15:00", home: "Oldham Athletic", away: "Rochdale", competition: "National League", venue: "Boundary Park", travelMins: 22, isLocal: true },
+      { id: 1004, date: "2026-11-14", time: "15:00", home: "Altrincham", away: "FC Halifax Town", competition: "National League", venue: "J.Davidson Stadium", travelMins: 22, isLocal: true },
+      { id: 1005, date: "2026-11-14", time: "15:00", home: "FC United of Manchester", away: "Bury", competition: "Northern Premier", venue: "Broadhurst Park", travelMins: 15, isLocal: true },
+      { id: 1006, date: "2026-11-15", time: "14:00", home: "Manchester City Women", away: "Manchester United Women", competition: "WSL", venue: "Joie Stadium", travelMins: 10, isLocal: true },
+      { id: 1007, date: "2026-11-21", time: "12:30", home: "Manchester City", away: "Tottenham Hotspur", competition: "Premier League", venue: "Etihad Stadium", travelMins: 10, isLocal: true },
+      { id: 1008, date: "2026-11-21", time: "15:00", home: "Bolton Wanderers", away: "Wigan Athletic", competition: "League One", venue: "Toughsheet Community Stadium", travelMins: 25, isLocal: true },
+      { id: 1009, date: "2026-11-21", time: "15:00", home: "Curzon Ashton", away: "Radcliffe", competition: "National League North", venue: "Tameside Stadium", travelMins: 18, isLocal: true },
+      { id: 1010, date: "2026-11-22", time: "16:30", home: "Manchester United", away: "Arsenal", competition: "Premier League", venue: "Old Trafford", travelMins: 15, isLocal: true },
+      { id: 1011, date: "2026-11-28", time: "15:00", home: "Preston North End", away: "Blackburn Rovers", competition: "Championship", venue: "Deepdale", travelMins: 42, isLocal: true },
+      { id: 1012, date: "2026-11-28", time: "15:00", home: "Wigan Athletic", away: "Stockport County", competition: "League One", venue: "The Brick Community Stadium", travelMins: 35, isLocal: true }
+    ];
+
+    let ALL_FIXTURES = [];
+    let shortlist = JSON.parse(localStorage.getItem("mcr_fixture_shortlist") || "[]");
+    let state = {
+      search: "",
+      maxMins: 45,
+      tier: "ALL",
+      location: "HOME",
+      dateRange: "ALL"
+    };
+
+    // Infer tier & travel time if fixtures.json comes from API-Football
+    function normalizeFixture(f) {
+      const homeClub = CLUBS.find(c => f.home.toLowerCase().includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(f.home.toLowerCase()));
+      const awayClub = CLUBS.find(c => f.away.toLowerCase().includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(f.away.toLowerCase()));
+      
+      const isLocal = typeof f.isLocal === "boolean" ? f.isLocal : Boolean(homeClub);
+      const travelMins = isLocal ? (homeClub ? homeClub.mins : (f.travelMins || 30)) : 99;
+      
+      let tier = f.tier || f.competition || "Other";
+      if (tier.includes("Premier League") && !tier.includes("Northern")) tier = "Premier League";
+      else if (tier.includes("WSL") || tier.includes("Women's Super League")) tier = "WSL";
+      else if (tier.includes("Championship")) tier = "Championship";
+      else if (tier.includes("League One")) tier = "League One";
+      else if (tier.includes("League Two")) tier = "League Two";
+      else if (tier.includes("National League - North")) tier = "National League North";
+      else if (tier.includes("National League")) tier = "National League";
+      else if (tier.includes("Northern Premier")) tier = "Northern Premier";
+      else if (tier.includes("Cup") || tier.includes("Trophy")) tier = "Cup";
+
+      return {
+        ...f,
+        tier,
+        travelMins,
+        isLocal,
+        venue: f.venue && f.venue !== "TBC" ? f.venue : (homeClub ? homeClub.ground : "TBC")
+      };
+    }
+
+    async function loadFixturesData() {
+      const badge = document.getElementById("dataSourceBadge");
+      try {
+        // Cache-busting query string so GitHub Pages always loads newest commit
+        const res = await fetch(`./fixtures.json?t=${Date.now()}`);
+        if (!res.ok) throw new Error("No fixtures.json found");
+        const rawData = await res.json();
+        if (!Array.isArray(rawData) || rawData.length === 0) throw new Error("Empty fixtures.json");
+
+        ALL_FIXTURES = rawData.map(normalizeFixture);
+        const latestDate = ALL_FIXTURES[ALL_FIXTURES.length - 1]?.date || "";
+        badge.textContent = `● Live Sync (${ALL_FIXTURES.length} games)`;
+        badge.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+      } catch (err) {
+        ALL_FIXTURES = FALLBACK_FIXTURES.map(normalizeFixture);
+        badge.textContent = "Sample Data (Run GitHub Action to Sync)";
+        badge.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30";
+      }
+      renderFixtures();
+      renderShortlist();
+    }
+
+    function formatDisplayDate(dateStr) {
+      const d = new Date(dateStr + "T12:00:00");
+      return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    }
+
+    function isWeekend(dateStr) {
+      const day = new Date(dateStr + "T12:00:00").getDay();
+      return day === 0 || day === 6 || day === 5;
+    }
+
+    function renderFixtures() {
+      const container = document.getElementById("fixturesContainer");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const filtered = ALL_FIXTURES.filter(f => {
+        // Search
+        if (state.search) {
+          const q = state.search.toLowerCase();
+          const matchText = `${f.home} ${f.away} ${f.venue} ${f.competition}`.toLowerCase();
+          if (!matchText.includes(q)) return false;
+        }
+
+        // Location & Travel Radius
+        if (state.location === "HOME") {
+          if (!f.isLocal || f.travelMins > state.maxMins) return false;
+        } else if (state.location === "AWAY") {
+          if (f.isLocal) return false;
+        }
+
+        // Competition / Tier
+        if (state.tier !== "ALL" && f.tier !== state.tier) return false;
+
+        // Date Filter
+        const fDate = new Date(f.date + "T12:00:00");
+        const diffDays = (fDate - today) / (1000 * 60 * 60 * 24);
+        if (state.dateRange === "THIS_WEEK" && (diffDays < -1 || diffDays > 7)) return false;
+        if (state.dateRange === "NEXT_14" && (diffDays < -1 || diffDays > 14)) return false;
+        if (state.dateRange === "WEEKENDS" && !isWeekend(f.date)) return false;
+
+        return true;
+      });
+
+      document.getElementById("matchCount").textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-10 text-center">
+            <p class="text-slate-300 font-semibold">No fixtures match your current filters.</p>
+            <p class="text-xs text-slate-500 mt-1">Try expanding the travel slider to 45 mins, switching to "All Games", or clearing your search.</p>
+          </div>`;
+        return;
+      }
+
+      // Group by Date
+      const grouped = {};
+      filtered.forEach(f => {
+        if (!grouped[f.date]) grouped[f.date] = [];
+        grouped[f.date].push(f);
+      });
+
+      container.innerHTML = Object.keys(grouped).sort().map(date => {
+        const items = grouped[date];
+        return `
+          <div class="space-y-2.5">
+            <div class="flex items-center gap-3">
+              <h3 class="text-sm font-bold text-emerald-400 uppercase tracking-wider">${formatDisplayDate(date)}</h3>
+              <div class="h-px flex-1 bg-slate-800"></div>
+              <span class="text-xs text-slate-500">${items.length} ${items.length === 1 ? 'match' : 'matches'}</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              ${items.map(f => renderFixtureCard(f)).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderFixtureCard(f) {
+      const saved = shortlist.includes(f.id);
+      const travelBadge = f.isLocal
+        ? `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">🚆 ~${f.travelMins}m from Mcr</span>`
+        : `<span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700">Away Fixture</span>`;
+
+      return `
+        <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 flex flex-col justify-between gap-3 transition shadow-md">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300">
+              ${f.competition}
+            </span>
+            <div class="flex items-center gap-2">
+              ${travelBadge}
+              <button onclick="toggleShortlist(${f.id})" title="Save to Shortlist"
+                class="p-1.5 rounded-lg border transition ${saved ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'}">
+                ${saved ? '★' : '☆'}
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between gap-3 my-1">
+            <div class="flex-1 text-right">
+              <p class="font-bold text-sm sm:text-base text-white leading-snug">${f.home}</p>
+            </div>
+            <div class="px-3 py-1 rounded-xl bg-slate-950 border border-slate-800 text-center shrink-0">
+              <span class="text-xs font-extrabold text-emerald-400">${f.time}</span>
+            </div>
+            <div class="flex-1 text-left">
+              <p class="font-bold text-sm sm:text-base text-white leading-snug">${f.away}</p>
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <span>📍 ${f.venue}</span>
+            <span class="text-slate-500">${f.isLocal ? 'Home / Local' : 'Away'}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderClubs() {
+      const grid = document.getElementById("clubsGrid");
+      grid.innerHTML = CLUBS.sort((a, b) => a.mins - b.mins).map(c => `
+        <div onclick="filterByClub('${c.name.replace(/'/g, "\\'")}')" 
+          class="cursor-pointer bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-4 transition flex flex-col justify-between gap-3">
+          <div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/30">~${c.mins} mins</span>
+              <span class="text-[11px] font-semibold text-slate-400">${c.tier}</span>
+            </div>
+            <h3 class="text-base font-bold text-white mt-2">${c.name}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">🏟️ ${c.ground} (${c.postcode})</p>
+          </div>
+          <div class="pt-2 border-t border-slate-800 text-[11px] text-slate-400">
+            🚆 ${c.transport}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderShortlist() {
+      document.getElementById("shortlistBadge").textContent = shortlist.length;
+      const container = document.getElementById("shortlistContainer");
+      const savedMatches = ALL_FIXTURES.filter(f => shortlist.includes(f.id));
+
+      if (savedMatches.length === 0) {
+        container.innerHTML = `
+          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-10 text-center">
+            <p class="text-slate-300 font-semibold">Your shortlist is empty.</p>
+            <p class="text-xs text-slate-500 mt-1">Click the ☆ icon on any fixture card to build your matchday schedule.</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = savedMatches.map(f => renderFixtureCard(f)).join("");
+    }
+
+    function toggleShortlist(id) {
+      if (shortlist.includes(id)) {
+        shortlist = shortlist.filter(item => item !== id);
+      } else {
+        shortlist.push(id);
+      }
+      localStorage.setItem("mcr_fixture_shortlist", JSON.stringify(shortlist));
+      renderFixtures();
+      renderShortlist();
+    }
+
+    function clearShortlist() {
+      shortlist = [];
+      localStorage.setItem("mcr_fixture_shortlist", JSON.stringify(shortlist));
+      renderFixtures();
+      renderShortlist();
+    }
+
+    function copyShortlist() {
+      const savedMatches = ALL_FIXTURES.filter(f => shortlist.includes(f.id));
+      if (!savedMatches.length) return;
+      const text = savedMatches.map(f => `${f.date} ${f.time} — ${f.home} vs ${f.away} (${f.venue}, ${f.competition})`).join("\n");
+      navigator.clipboard.writeText(text);
+      const toast = document.getElementById("toast");
+      toast.classList.remove("translate-y-20", "opacity-0");
+      setTimeout(() => toast.classList.add("translate-y-20", "opacity-0"), 2500);
+    }
+
+    function filterByClub(clubName) {
+      document.getElementById("searchInput").value = clubName;
+      state.search = clubName;
+      state.location = "ALL";
+      updateLocationButtons();
+      switchTab("fixtures");
+      renderFixtures();
+    }
+
+    function switchTab(tab) {
+      ["fixtures", "clubs", "shortlist"].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle("hidden", t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        if (t === tab) {
+          btn.classList.add("bg-emerald-500", "text-slate-950");
+          btn.classList.remove("text-slate-300");
+        } else {
+          btn.classList.remove("bg-emerald-500", "text-slate-950");
+          btn.classList.add("text-slate-300");
+        }
+      });
+    }
+
+    function setRadius(mins) {
+      state.maxMins = mins;
+      document.getElementById("radiusSlider").value = mins;
+      document.getElementById("radiusLabel").textContent = `≤ ${mins} mins`;
+      renderFixtures();
+    }
+
+    function setLocationFilter(loc) {
+      state.location = loc;
+      updateLocationButtons();
+      renderFixtures();
+    }
+
+    function updateLocationButtons() {
+      ["HOME", "ALL", "AWAY"].forEach(loc => {
+        const btn = document.getElementById(`loc-${loc}`);
+        if (loc === state.location) {
+          btn.classList.add("bg-emerald-500", "text-slate-950");
+          btn.classList.remove("text-slate-300");
+        } else {
+          btn.classList.remove("bg-emerald-500", "text-slate-950");
+          btn.classList.add("text-slate-300");
+        }
+      });
+    }
+
+    function setDateFilter(range) {
+      state.dateRange = range;
+      document.querySelectorAll(".date-pill").forEach(btn => {
+        if (btn.dataset.date === range) {
+          btn.classList.add("bg-emerald-500", "text-slate-950");
+          btn.classList.remove("bg-slate-800", "text-slate-300");
+        } else {
+          btn.classList.remove("bg-emerald-500", "text-slate-950");
+          btn.classList.add("bg-slate-800", "text-slate-300");
+        }
+      });
+      renderFixtures();
+    }
+
+    // Event Listeners
+    document.getElementById("searchInput").addEventListener("input", e => {
+      state.search = e.target.value.trim();
+      renderFixtures();
+    });
+
+    document.getElementById("radiusSlider").addEventListener("input", e => {
+      setRadius(parseInt(e.target.value, 10));
+    });
+
+    document.getElementById("tierFilter").addEventListener("change", e => {
+      state.tier = e.target.value;
+      renderFixtures();
+    });
+
+    // Boot
+    renderClubs();
+    loadFixturesData();
+  </script>
+</body>
+</html>
