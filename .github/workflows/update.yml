@@ -1,0 +1,30 @@
+name: Update Manchester Fixtures
+
+on:
+  schedule:
+    # Runs every Monday and Thursday at 06:00 UTC
+    - cron: '0 6 * * 1,4'
+  workflow_dispatch: # Adds a manual "Run workflow" button so you can test it immediately
+
+permissions:
+  contents: write
+
+jobs:
+  update-fixtures:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch latest fixtures and update data
+        env:
+          API_KEY: ${{ secrets.FOOTBALL_API_KEY }}
+        run: |
+          python3 update_fixtures.py
+
+      - name: Commit and push updated fixtures
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add fixtures.json index.html
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update Manchester fixtures" && git push)
